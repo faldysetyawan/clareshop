@@ -26,6 +26,30 @@ Buka `http://localhost:5173` (atau port yang ditampilkan).
 Tanpa backend, perubahan hanya tersimpan di browser itu (draf lokal).
 Dengan backend (di bawah), perubahan tampil untuk **semua pengunjung**.
 
+## Dashboard admin (order & penghasilan)
+
+Setiap pembeli yang menekan **"Saya sudah bayar"** otomatis tercatat
+sebagai order baru (status awal: *Menunggu*).
+
+1. Buka `https://situsmu.netlify.app/admin` (atau dari mode `?edit`
+   → panel bawah → **"📊 Buka dashboard admin"**).
+2. Masuk dengan **password admin** yang sama (tersimpan otomatis bila
+   sudah pernah login di mode `?edit`).
+3. Di dashboard ada:
+   - **Total penghasilan** (order Lunas + Selesai), **penghasilan hari ini**,
+     jumlah **menunggu verifikasi**, dan **total order**;
+   - grafik penghasilan 7 hari terakhir;
+   - daftar order (produk, durasi, jumlah, total, metode bayar, ID/akun
+     tujuan, nama, catatan, waktu) dengan filter status;
+   - tombol ubah status: **Menunggu → Lunas → Selesai**, atau **Batal**.
+4. Setelah memverifikasi pembayaran manual (cek mutasi bank/e-wallet),
+   ubah status order menjadi **Lunas**, lalu **Selesai** setelah pesanan
+   diproses.
+
+Syarat: migrasi `20261006180000_orders.sql` sudah dijalankan di Supabase
+(langkah 2 bagian Backend di atas). Tanpa tabel order, pencatatan
+dilewati diam-diam dan checkout WhatsApp tetap berjalan normal.
+
 ## Backend Supabase (agar edit berlaku di semua perangkat)
 
 Gratis, tanpa kartu kredit.
@@ -34,6 +58,8 @@ Gratis, tanpa kartu kredit.
    (region Singapore), tunggu ±2 menit.
 2. **SQL Editor → New query** → salin isi
    `supabase/migrations/20261006000000_site_content.sql` → **Run**.
+   Lalu ulangi untuk `supabase/migrations/20261006180000_orders.sql`
+   (tabel riwayat order untuk dashboard admin).
 3. **Project Settings → API**, catat:
    - `SUPABASE_URL` → Project URL
    - `SUPABASE_SERVICE_ROLE_KEY` → Secret key (`service_role`)

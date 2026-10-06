@@ -567,6 +567,9 @@ function Index() {
                   ? "Ada perubahan yang belum disimpan."
                   : "Semua perubahan sudah tersimpan."}
           </p>
+          <a href="/admin" className="rounded-full border border-dashed border-border px-3 py-1.5 text-center text-[11px] font-semibold text-muted-foreground hover:border-primary hover:text-primary">
+            📊 Buka dashboard admin (order & penghasilan)
+          </a>
         </div>
       )}
     </main>

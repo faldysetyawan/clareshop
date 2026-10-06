@@ -35,6 +35,20 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+/**
+ * Periksa password admin. Mengembalikan null bila benar, atau pesan error bila salah.
+ * Dipakai ulang oleh endpoint lain yang butuh otentikasi admin (mis. /api/orders).
+ */
+export async function checkAdminPassword(password: unknown): Promise<string | null> {
+  const adminPassword = process.env["ADMIN_PASSWORD"];
+  if (!adminPassword) return "ADMIN_PASSWORD belum diatur di server.";
+  if (typeof password !== "string" || !safeEqual(password, adminPassword)) {
+    await new Promise((resolve) => setTimeout(resolve, 600)); // memperlambat tebak-tebakan password
+    return "Password salah.";
+  }
+  return null;
+}
+
 async function uploadImage(dataUrl: string, prefix: string): Promise<string> {
   const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(dataUrl);
   const contentType = match?.[1];
@@ -59,15 +73,11 @@ async function uploadImage(dataUrl: string, prefix: string): Promise<string> {
 type SaveResult = { status: number; body: { error: string } | { content: SiteContent } };
 
 export async function saveContent(payload: unknown): Promise<SaveResult> {
-  const adminPassword = process.env["ADMIN_PASSWORD"];
-  if (!adminPassword) {
-    return { status: 500, body: { error: "ADMIN_PASSWORD belum diatur di server." } };
-  }
-
   const { password, content } = (payload ?? {}) as { password?: unknown; content?: unknown };
-  if (typeof password !== "string" || !safeEqual(password, adminPassword)) {
-    await new Promise((resolve) => setTimeout(resolve, 600)); // memperlambat tebak-tebakan password
-    return { status: 401, body: { error: "Password salah." } };
+  const passwordError = await checkAdminPassword(password);
+  if (passwordError) {
+    const status = passwordError === "Password salah." ? 401 : 500;
+    return { status, body: { error: passwordError } };
   }
 
   const parsed = contentSchema.safeParse(content);

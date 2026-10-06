@@ -125,6 +125,30 @@ function CheckoutForm({
 
   const submit = () => {
     if (!payment) return;
+    // Catat order ke dashboard admin (fire-and-forget: tidak menghalangi buka WhatsApp).
+    try {
+      fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          order: {
+            product_name: product.name,
+            variant_label: variant?.label ?? "",
+            detail: product.detail,
+            qty,
+            total: total ?? 0,
+            payment_label: payment.label,
+            payment_type: payment.type,
+            target: target.trim(),
+            buyer_name: buyer.trim(),
+            note: note.trim(),
+          },
+        }),
+      }).catch(() => {});
+    } catch {
+      /* backend belum terhubung: checkout via WhatsApp tetap jalan */
+    }
     const lines = [
       `Halo ${shopName}, saya mau order:`,
       `Produk: ${product.name}${variant ? ` (${variant.label})` : ""} - ${product.detail}`,
