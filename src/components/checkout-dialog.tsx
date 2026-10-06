@@ -1,5 +1,6 @@
-import { ArrowLeft, Check, Copy, Landmark, MessageCircle, Minus, Plus, QrCode, Smartphone, Wallet } from "lucide-react";
+import { ArrowLeft, Check, Copy, Download, Landmark, MessageCircle, Minus, Plus, QrCode, Smartphone, Wallet, X } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -75,6 +76,8 @@ function CheckoutForm({
   const [note, setNote] = useState("");
   const [paymentId, setPaymentId] = useState<string>(available[0]?.id ?? "");
   const [copied, setCopied] = useState(false);
+  const [qrZoom, setQrZoom] = useState(false);
+  const [imgSaved, setImgSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const variants = product.variants ?? [];
@@ -121,6 +124,28 @@ function CheckoutForm({
     }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const saveQrImage = async () => {
+    if (!payment?.image) return;
+    try {
+      const response = await fetch(payment.image, { mode: "cors" });
+      if (!response.ok) throw new Error("fetch gagal");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `qris-${shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "toko"}.png`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setImgSaved(true);
+      window.setTimeout(() => setImgSaved(false), 2000);
+    } catch {
+      // Gagal unduh langsung (mis. CORS): buka di tab baru agar bisa disimpan manual.
+      window.open(payment.image, "_blank", "noopener");
+    }
   };
 
   const submit = () => {
@@ -314,7 +339,17 @@ function CheckoutForm({
               {payment.type === "qris" ? (
                 <div className="mt-3 grid place-items-center gap-2">
                   {payment.image ? (
-                    <img src={payment.image} alt={`Kode QR ${payment.label}`} className="size-48 rounded-[12px] border border-border bg-white object-contain p-2" />
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setQrZoom(true)}
+                        aria-label="Perbesar kode QR"
+                        className="rounded-[12px] transition-transform active:scale-95"
+                      >
+                        <img src={payment.image} alt={`Kode QR ${payment.label}`} className="size-48 rounded-[12px] border border-border bg-white object-contain p-2" />
+                      </button>
+                      <p className="text-[11px] text-muted-foreground">Ketuk gambar untuk memperbesar</p>
+                    </>
                   ) : (
                     <p className="rounded-[10px] bg-secondary p-4 text-center text-xs text-muted-foreground">
                       Kode QR belum dipasang admin. Minta kode QR via WhatsApp.
@@ -363,6 +398,46 @@ function CheckoutForm({
           </p>
         </div>
       )}
+
+      {/* Tampilan QR layar penuh (portal: keluar dari transform dialog). */}
+      {qrZoom &&
+        payment?.image &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-white p-6"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Kode QR ${payment.label} diperbesar`}
+            onClick={() => setQrZoom(false)}
+          >
+            <button
+              type="button"
+              onClick={() => setQrZoom(false)}
+              aria-label="Tutup tampilan penuh"
+              className="absolute right-4 top-4 grid size-10 place-items-center rounded-full border border-border bg-card text-foreground shadow-soft"
+            >
+              <X className="size-5" />
+            </button>
+            <div className="grid w-full max-w-xs place-items-center gap-4" onClick={(event) => event.stopPropagation()}>
+              <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                {paymentTypeLabels[payment.type]} · {payment.label}
+              </p>
+              <img
+                src={payment.image}
+                alt={`Kode QR ${payment.label}`}
+                className="w-full rounded-[16px] border border-border bg-white object-contain p-3 shadow-soft"
+              />
+              <Button type="button" className="w-full" onClick={() => void saveQrImage()}>
+                <Download className="mr-2 size-4" />
+                {imgSaved ? "Tersimpan!" : "Simpan gambar"}
+              </Button>
+              <p className="text-center text-xs leading-5 text-muted-foreground">
+                Simpan gambarnya, lalu scan dari galeri di aplikasi pembayaranmu.
+              </p>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

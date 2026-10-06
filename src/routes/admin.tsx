@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BarChart3, Lock, Package, RefreshCw, Wallet } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +50,30 @@ const statusStyles: Record<OrderStatus, string> = {
   cancelled: "bg-muted text-muted-foreground",
 };
 
+/** Bunyi notifikasi saat ada order baru (tanpa file eksternal). */
+function beep() {
+  try {
+    const Ctx =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    window.setTimeout(() => void ctx.close().catch(() => {}), 1000);
+  } catch {
+    /* audio diblokir: abaikan */
+  }
+}
+
+const POLL_MS = 20000;
+
 function AdminPage() {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
@@ -58,14 +82,26 @@ function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | OrderStatus>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [newAlert, setNewAlert] = useState(0);
+  const knownIds = useRef<Set<string>>(new Set());
 
   const load = useCallback(
-    async (pw: string) => {
-      setLoading(true);
-      setError(null);
+    async (pw: string, silent = false) => {
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const data = await api("list", { password: pw });
-        setOrders(data.orders ?? []);
+        const list = data.orders ?? [];
+        const freshPending = list.filter((o) => o.status === "pending" && !knownIds.current.has(o.id));
+        if (knownIds.current.size > 0 && freshPending.length > 0) {
+          beep();
+          setNewAlert(freshPending.length);
+        }
+        knownIds.current = new Set(list.map((o) => o.id));
+        setOrders(list);
         setAuthed(true);
         try {
           window.sessionStorage.setItem(SESSION_KEY, pw);
@@ -73,10 +109,12 @@ function AdminPage() {
           /* abaikan */
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Gagal memuat data.");
-        setAuthed(false);
+        if (!silent) {
+          setError(err instanceof Error ? err.message : "Gagal memuat data.");
+          setAuthed(false);
+        }
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
     },
     [],
@@ -94,6 +132,15 @@ function AdminPage() {
       /* abaikan */
     }
   }, [load]);
+
+  // Pantau otomatis: cek order baru tiap 20 detik selama sudah login.
+  useEffect(() => {
+    if (!authed || !autoRefresh) return;
+    const timer = setInterval(() => {
+      void load(password, true);
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [authed, autoRefresh, password, load]);
 
   const changeStatus = async (id: string, status: OrderStatus) => {
     setUpdatingId(id);
@@ -176,6 +223,27 @@ function AdminPage() {
           </a>
         </div>
       </div>
+
+      {newAlert > 0 && (
+        <button
+          type="button"
+          onClick={() => setNewAlert(0)}
+          className="mt-4 w-full animate-pulse rounded-[12px] bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-soft"
+        >
+          🔔 Ada {newAlert} order baru masuk! Ketuk untuk menutup.
+        </button>
+      )}
+
+      <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={autoRefresh}
+          onChange={(event) => setAutoRefresh(event.target.checked)}
+          className="size-4 accent-primary"
+        />
+        Pantau otomatis tiap 20 detik
+        {autoRefresh && <span className="size-2 animate-pulse rounded-full bg-success" aria-label="aktif" />}
+      </label>
 
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {cards.map((card) => (
