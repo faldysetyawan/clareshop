@@ -173,32 +173,21 @@ function CheckoutForm({
       </div>
 
       {step === "form" && variants.length > 0 && (
-        <fieldset>
-          <legend className="text-xs font-semibold">{isGame ? "Pilih paket" : "Durasi langganan"}</legend>
-          <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={isGame ? "Pilih paket" : "Durasi langganan"}>
-            {variants.map((item) => {
-              const selected = item.id === (variant?.id ?? "");
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setVariantId(item.id)}
-                  className={cn(
-                    "rounded-[12px] border px-2 py-2 text-center transition-colors",
-                    selected
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-card hover:border-primary/50",
-                  )}
-                >
-                  <span className={cn("block text-xs font-bold", selected ? "text-primary" : "text-foreground")}>{item.label}</span>
-                  <span className="mt-0.5 block text-[11px] text-muted-foreground">{item.price}</span>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <label className="block text-xs font-semibold">
+          {isGame ? "Pilih paket" : "Durasi langganan"}
+          <select
+            value={variant?.id ?? ""}
+            onChange={(event) => setVariantId(event.target.value)}
+            className={fieldClass}
+            aria-label={isGame ? "Pilih paket" : "Durasi langganan"}
+          >
+            {variants.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label} · {item.price}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
 
       {step === "form" ? (
