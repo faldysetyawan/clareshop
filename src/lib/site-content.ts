@@ -3,6 +3,14 @@ import { z } from "zod";
 
 export type ProductCategory = "Game" | "App Premium";
 
+export type ProductVariant = {
+  id: string;
+  /** Label pilihan, mis. "1 bulan" */
+  label: string;
+  /** Harga varian, mis. "Rp 54.990" */
+  price: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -13,7 +21,41 @@ export type Product = {
   mark: string;
   /** null = tanpa gambar; selain itu data URL (draf) atau alamat https (tersimpan) */
   image: string | null;
+  /** Pilihan durasi/paket. Kosong = harga tunggal dari field `price`. */
+  variants: ProductVariant[];
 };
+
+/** "Rp 23.000" -> 23000; null jika harganya bukan angka. */
+export function parseRupiah(price: string): number | null {
+  const digits = price.replace(/\D/g, "");
+  return digits ? Number.parseInt(digits, 10) : null;
+}
+
+export function formatRupiah(value: number): string {
+  return `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
+}
+
+/** Harga varian termurah (angka); null bila tidak ada varian yang valid. */
+export function cheapestVariantPrice(product: Product): number | null {
+  const prices = (product.variants ?? [])
+    .map((variant) => parseRupiah(variant.price))
+    .filter((value): value is number => value !== null);
+  return prices.length > 0 ? Math.min(...prices) : null;
+}
+
+/** Teks harga di kartu produk: "Mulai Rp X" bila ada varian, atau harga tunggal. */
+export function displayPrice(product: Product): string {
+  const cheapest = cheapestVariantPrice(product);
+  return cheapest !== null ? `Mulai ${formatRupiah(cheapest)}` : product.price;
+}
+
+export function newProductVariant(label = "1 bulan", price = "Rp 0"): ProductVariant {
+  return {
+    id: `v-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    label,
+    price,
+  };
+}
 
 export type PaymentType = "bank" | "ewallet" | "qris";
 
@@ -101,12 +143,33 @@ export const defaultContent: SiteContent = {
     { id: "pay-qris", type: "qris", label: "QRIS", accountName: "Sakura Pop", accountNumber: "", note: "Scan kode QR di bawah dari aplikasi apa pun.", active: true, image: null },
   ],
   products: [
-    { id: "ml", name: "Mobile Legends", category: "Game", detail: "100 + bonus 15 diamonds", price: "Rp 23.000", badge: "-10%", mark: "ML", image: null },
-    { id: "ff", name: "Free Fire", category: "Game", detail: "50 + 5 diamonds", price: "Rp 10.000", badge: "", mark: "FF", image: null },
-    { id: "val", name: "Valorant", category: "Game", detail: "875 VP", price: "Rp 150.000", badge: "", mark: "V", image: null },
-    { id: "nf", name: "Netflix", category: "App Premium", detail: "Premium 1 bulan", price: "Rp 186.000", badge: "", mark: "N", image: null },
-    { id: "sp", name: "Spotify", category: "App Premium", detail: "Premium 1 bulan", price: "Rp 54.990", badge: "", mark: "S", image: null },
-    { id: "cv", name: "Canva Pro", category: "App Premium", detail: "Akses penuh 12 bulan", price: "Rp 599.000", badge: "", mark: "C", image: null },
+    { id: "ml", name: "Mobile Legends", category: "Game", detail: "100 + bonus 15 diamonds", price: "Rp 23.000", badge: "-10%", mark: "ML", image: null, variants: [] },
+    { id: "ff", name: "Free Fire", category: "Game", detail: "50 + 5 diamonds", price: "Rp 10.000", badge: "", mark: "FF", image: null, variants: [] },
+    { id: "val", name: "Valorant", category: "Game", detail: "875 VP", price: "Rp 150.000", badge: "", mark: "V", image: null, variants: [] },
+    {
+      id: "nf", name: "Netflix", category: "App Premium", detail: "Premium · pilih durasi", price: "Rp 186.000", badge: "", mark: "N", image: null,
+      variants: [
+        { id: "nf-1", label: "1 bulan", price: "Rp 186.000" },
+        { id: "nf-3", label: "3 bulan", price: "Rp 525.000" },
+        { id: "nf-12", label: "12 bulan", price: "Rp 1.950.000" },
+      ],
+    },
+    {
+      id: "sp", name: "Spotify", category: "App Premium", detail: "Premium · pilih durasi", price: "Rp 54.990", badge: "", mark: "S", image: null,
+      variants: [
+        { id: "sp-1", label: "1 bulan", price: "Rp 54.990" },
+        { id: "sp-3", label: "3 bulan", price: "Rp 155.000" },
+        { id: "sp-12", label: "12 bulan", price: "Rp 590.000" },
+      ],
+    },
+    {
+      id: "cv", name: "Canva Pro", category: "App Premium", detail: "Akses penuh · pilih durasi", price: "Rp 59.000", badge: "", mark: "C", image: null,
+      variants: [
+        { id: "cv-1", label: "1 bulan", price: "Rp 59.000" },
+        { id: "cv-3", label: "3 bulan", price: "Rp 165.000" },
+        { id: "cv-12", label: "12 bulan", price: "Rp 599.000" },
+      ],
+    },
   ],
 };
 
@@ -138,6 +201,7 @@ export function newProduct(name = "Produk baru", category: ProductCategory = "Ga
     badge: "",
     mark: name.trim().charAt(0).toUpperCase() || "P",
     image: null,
+    variants: [],
   };
 }
 
@@ -184,6 +248,16 @@ export const contentSchema = z.object({
         badge: text(20),
         mark: text(3),
         image: imageField.nullable().default(null),
+        variants: z
+          .array(
+            z.object({
+              id: text(40),
+              label: text(40),
+              price: text(40),
+            }),
+          )
+          .max(12)
+          .default([]),
       }),
     )
     .max(100),
@@ -209,13 +283,28 @@ export const contentSchema = z.object({
 /** Gabungkan data dari database dengan bawaan supaya field yang hilang tidak bikin error. */
 export function mergeContent(stored: Partial<SiteContent> | null | undefined): SiteContent {
   const data = stored ?? {};
+  // Produk lama (disimpan sebelum ada fitur varian) belum punya field `variants`:
+  // pakai varian bawaan bila id-nya cocok, supaya pilihan durasi langsung muncul.
+  const defaultVariantsById = new Map(defaultContent.products.map((product) => [product.id, product.variants]));
   return {
     ...defaultContent,
     ...data,
     promo: { ...defaultContent.promo, ...(data.promo ?? {}) },
     marquee: Array.isArray(data.marquee) && data.marquee.length > 0 ? data.marquee : defaultContent.marquee,
     products: Array.isArray(data.products)
-      ? data.products.map((product) => ({ ...product, image: product.image ?? null }))
+      ? data.products.map((product) => ({
+          ...product,
+          image: product.image ?? null,
+          variants: Array.isArray(product.variants)
+            ? product.variants
+                .filter((variant) => variant && typeof variant.label === "string" && variant.label.trim())
+                .map((variant) => ({
+                  id: String(variant.id ?? "").slice(0, 40),
+                  label: variant.label.slice(0, 40),
+                  price: typeof variant.price === "string" ? variant.price.slice(0, 40) : "",
+                }))
+            : (defaultVariantsById.get(product.id) ?? []),
+        }))
       : defaultContent.products,
     payments: Array.isArray(data.payments) && data.payments.length > 0
       ? data.payments.map((payment) => ({

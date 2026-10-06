@@ -3,18 +3,10 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { activePayments, paymentTypeLabels, type PaymentMethod, type PaymentType, type Product } from "@/lib/site-content";
+import { activePayments, formatRupiah, parseRupiah, paymentTypeLabels, type PaymentMethod, type PaymentType, type Product } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 const MAX_QTY = 10;
-
-/** "Rp 23.000" -> 23000; null jika harganya bukan angka. */
-function parsePrice(price: string): number | null {
-  const digits = price.replace(/\D/g, "");
-  return digits ? Number.parseInt(digits, 10) : null;
-}
-
-const rupiah = (value: number) => `Rp ${new Intl.NumberFormat("id-ID").format(value)}`;
 
 /** 08123… -> 628123…; sisanya hanya diambil angkanya. */
 function whatsappNumber(raw: string): string {
@@ -85,8 +77,12 @@ function CheckoutForm({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const variants = product.variants ?? [];
+  const [variantId, setVariantId] = useState(variants[0]?.id ?? "");
+  const variant = variants.find((item) => item.id === variantId) ?? variants[0] ?? null;
+
   const isGame = product.category === "Game";
-  const unitPrice = parsePrice(product.price);
+  const unitPrice = variant ? parseRupiah(variant.price) : parseRupiah(product.price);
   const total = unitPrice === null ? null : unitPrice * qty;
   const number = whatsappNumber(whatsapp);
   const payment = available.find((item) => item.id === paymentId) ?? null;
@@ -131,9 +127,10 @@ function CheckoutForm({
     if (!payment) return;
     const lines = [
       `Halo ${shopName}, saya mau order:`,
-      `Produk: ${product.name} - ${product.detail}`,
+      `Produk: ${product.name}${variant ? ` (${variant.label})` : ""} - ${product.detail}`,
+      variant ? `Durasi: ${variant.label}` : "",
       `Jumlah: ${qty}`,
-      total !== null ? `Total: ${rupiah(total)}` : `Harga: ${product.price}`,
+      total !== null ? `Total: ${formatRupiah(total)}` : `Harga: ${variant?.price ?? product.price}`,
       `Pembayaran: ${payment.label} (${paymentTypeLabels[payment.type]})`,
       `${isGame ? "ID game" : "Akun tujuan"}: ${target.trim()}`,
       buyer.trim() ? `Nama: ${buyer.trim()}` : "",
@@ -169,9 +166,40 @@ function CheckoutForm({
         <div className="min-w-0">
           <p className="font-display font-bold leading-tight">{product.name}</p>
           <p className="text-xs text-muted-foreground">{product.detail}</p>
-          <p className="mt-1 font-display text-sm font-bold text-primary">{product.price}</p>
+          <p className="mt-1 font-display text-sm font-bold text-primary">
+            {variant ? `${variant.label} · ${variant.price}` : product.price}
+          </p>
         </div>
       </div>
+
+      {step === "form" && variants.length > 0 && (
+        <fieldset>
+          <legend className="text-xs font-semibold">{isGame ? "Pilih paket" : "Durasi langganan"}</legend>
+          <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={isGame ? "Pilih paket" : "Durasi langganan"}>
+            {variants.map((item) => {
+              const selected = item.id === (variant?.id ?? "");
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setVariantId(item.id)}
+                  className={cn(
+                    "rounded-[12px] border px-2 py-2 text-center transition-colors",
+                    selected
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card hover:border-primary/50",
+                  )}
+                >
+                  <span className={cn("block text-xs font-bold", selected ? "text-primary" : "text-foreground")}>{item.label}</span>
+                  <span className="mt-0.5 block text-[11px] text-muted-foreground">{item.price}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
 
       {step === "form" ? (
         <form
@@ -253,7 +281,7 @@ function CheckoutForm({
               </Button>
             </div>
             <p className="text-right text-sm">
-              Total <strong className="font-display text-base text-primary">{total !== null ? rupiah(total) : product.price}</strong>
+              Total <strong className="font-display text-base text-primary">{total !== null ? formatRupiah(total) : product.price}</strong>
             </p>
           </div>
 
@@ -302,7 +330,7 @@ function CheckoutForm({
               {payment.note && <p className="mt-3 text-xs leading-5 text-muted-foreground">{payment.note}</p>}
               <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                 <span className="text-sm text-muted-foreground">Total dibayar</span>
-                <strong className="font-display text-lg text-primary">{total !== null ? rupiah(total) : product.price}</strong>
+                <strong className="font-display text-lg text-primary">{total !== null ? formatRupiah(total) : product.price}</strong>
               </div>
             </div>
           )}

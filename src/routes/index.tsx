@@ -23,7 +23,7 @@ import { EditableImage, EditableText, ImagePicker } from "@/components/editable"
 import { PaymentEditor } from "@/components/payment-editor";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { getSiteContent } from "@/lib/content.functions";
-import { activePayments, newProduct, useSiteContent, type Product, type ProductCategory } from "@/lib/site-content";
+import { activePayments, displayPrice, newProduct, newProductVariant, useSiteContent, type Product, type ProductCategory, type ProductVariant } from "@/lib/site-content";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -121,6 +121,39 @@ function Index() {
     update((current) => ({
       ...current,
       products: current.products.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    }));
+
+  const setVariant = (productId: string, variantId: string, patch: Partial<ProductVariant>) =>
+    update((current) => ({
+      ...current,
+      products: current.products.map((item) =>
+        item.id === productId
+          ? {
+              ...item,
+              variants: (item.variants ?? []).map((variant) =>
+                variant.id === variantId ? { ...variant, ...patch } : variant,
+              ),
+            }
+          : item,
+      ),
+    }));
+
+  const addVariant = (productId: string) =>
+    update((current) => ({
+      ...current,
+      products: current.products.map((item) =>
+        item.id === productId ? { ...item, variants: [...(item.variants ?? []), newProductVariant()] } : item,
+      ),
+    }));
+
+  const removeVariant = (productId: string, variantId: string) =>
+    update((current) => ({
+      ...current,
+      products: current.products.map((item) =>
+        item.id === productId
+          ? { ...item, variants: (item.variants ?? []).filter((variant) => variant.id !== variantId) }
+          : item,
+      ),
     }));
 
   const setPayments = (payments: typeof content.payments) =>
@@ -341,7 +374,54 @@ function Index() {
                   <EditableText as="h3" className="mt-1 font-display text-base font-bold leading-tight sm:text-lg" value={product.name} editing={editing} placeholder="Nama produk" onChange={(value) => setProduct(product.id, { name: value })} />
                   <EditableText as="p" className="mt-1 text-xs text-muted-foreground sm:text-sm" value={product.detail} editing={editing} placeholder="Detail" onChange={(value) => setProduct(product.id, { detail: value })} />
                   <div className="mt-auto pt-4">
-                    <EditableText as="p" className="font-display text-base font-bold text-primary sm:text-lg" value={product.price} editing={editing} placeholder="Harga" onChange={(value) => setProduct(product.id, { price: value })} />
+                    {editing ? (
+                      <EditableText as="p" className="font-display text-base font-bold text-primary sm:text-lg" value={product.price} editing={editing} placeholder="Harga" onChange={(value) => setProduct(product.id, { price: value })} />
+                    ) : (
+                      <p className="font-display text-base font-bold text-primary sm:text-lg">{displayPrice(product)}</p>
+                    )}
+                    {editing && (
+                      <div className="mt-2 rounded-[10px] border border-dashed border-border p-2">
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Varian / durasi</p>
+                        {(product.variants ?? []).map((variant) => (
+                          <div key={variant.id} className="mt-1.5 flex items-center gap-1">
+                            <input
+                              value={variant.label}
+                              onChange={(event) => setVariant(product.id, variant.id, { label: event.target.value })}
+                              placeholder="1 bulan"
+                              maxLength={40}
+                              aria-label="Label varian"
+                              className="w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                            />
+                            <input
+                              value={variant.price}
+                              onChange={(event) => setVariant(product.id, variant.id, { price: event.target.value })}
+                              placeholder="Rp 0"
+                              maxLength={40}
+                              aria-label="Harga varian"
+                              className="w-full min-w-0 rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeVariant(product.id, variant.id)}
+                              aria-label={`Hapus varian ${variant.label}`}
+                              className="shrink-0 rounded-md px-1.5 py-1 text-sm text-destructive hover:bg-destructive/10"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addVariant(product.id)}
+                          className="mt-1.5 w-full rounded-md border border-dashed border-border py-1 text-[11px] font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+                        >
+                          + Tambah varian
+                        </button>
+                        {(product.variants ?? []).length === 0 && (
+                          <p className="mt-1 text-[10px] text-muted-foreground">Tanpa varian = harga tunggal.</p>
+                        )}
+                      </div>
+                    )}
                     {editing ? (
                       <Button size="sm" variant="outline" className="mt-2 w-full rounded-[10px] text-destructive" onClick={() => removeProduct(product)}>
                         <Trash2 className="mr-1.5 size-3.5" />Hapus
