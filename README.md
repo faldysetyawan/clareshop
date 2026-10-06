@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# clareshop
-=======
 # Welcome to your Lovable project
 
 This project was built with [Lovable](https://lovable.dev).
@@ -30,4 +27,3 @@ npm run dev
 - TypeScript
 - React
 - Tailwind CSS
->>>>>>> 5746cfd (clareshop)
