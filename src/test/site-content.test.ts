@@ -117,10 +117,26 @@ describe("varian bawaan untuk data lama", () => {
     expect(merged.products[0]?.variants.map((v) => v.label)).toEqual(["1 bulan", "3 bulan", "12 bulan"]);
   });
 
-  it("varian yang dikosongkan manual tetap kosong", () => {
+  it("produk bawaan dengan variants kosong mendapat varian default", () => {
     const merged = mergeContent({
       products: [{ id: "sp", name: "Spotify", category: "App Premium", detail: "d", price: "Rp 54.990", badge: "", mark: "S", image: null, variants: [] }],
     } as never);
+    expect(merged.products[0]?.variants).toHaveLength(3);
+  });
+
+  it("varian yang dikosongkan manual pada produk tanpa varian bawaan tetap kosong", () => {
+    const merged = mergeContent({
+      products: [{ id: "ml", name: "Mobile Legends", category: "Game", detail: "d", price: "Rp 23.000", badge: "", mark: "ML", image: null, variants: [] }],
+    } as never);
     expect(merged.products[0]?.variants).toEqual([]);
+  });
+
+  it("daftar varian yang sudah diisi manual tidak diubah", () => {
+    const merged = mergeContent({
+      products: [{ id: "sp", name: "Spotify", category: "App Premium", detail: "d", price: "Rp 54.990", badge: "", mark: "S", image: null,
+        variants: [{ id: "x", label: "1 bulan", price: "Rp 50.000" }] }],
+    } as never);
+    expect(merged.products[0]?.variants).toHaveLength(1);
+    expect(merged.products[0]?.variants[0]?.price).toBe("Rp 50.000");
   });
 });

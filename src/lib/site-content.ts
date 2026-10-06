@@ -292,10 +292,8 @@ export function mergeContent(stored: Partial<SiteContent> | null | undefined): S
     promo: { ...defaultContent.promo, ...(data.promo ?? {}) },
     marquee: Array.isArray(data.marquee) && data.marquee.length > 0 ? data.marquee : defaultContent.marquee,
     products: Array.isArray(data.products)
-      ? data.products.map((product) => ({
-          ...product,
-          image: product.image ?? null,
-          variants: Array.isArray(product.variants)
+      ? data.products.map((product) => {
+          const stored = Array.isArray(product.variants)
             ? product.variants
                 .filter((variant) => variant && typeof variant.label === "string" && variant.label.trim())
                 .map((variant) => ({
@@ -303,8 +301,14 @@ export function mergeContent(stored: Partial<SiteContent> | null | undefined): S
                   label: variant.label.slice(0, 40),
                   price: typeof variant.price === "string" ? variant.price.slice(0, 40) : "",
                 }))
-            : (defaultVariantsById.get(product.id) ?? []),
-        }))
+            : [];
+          // Produk bawaan yang variannya kosong (data lama / pernah tersimpan kosong):
+          // pakai varian default supaya pilihan durasi langsung muncul.
+          // Daftar varian yang sudah diisi manual (tidak kosong) tidak diubah.
+          const withDefaults =
+            stored.length === 0 ? (defaultVariantsById.get(product.id) ?? stored) : stored;
+          return { ...product, image: product.image ?? null, variants: withDefaults };
+        })
       : defaultContent.products,
     payments: Array.isArray(data.payments) && data.payments.length > 0
       ? data.payments.map((payment) => ({
