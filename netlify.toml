@@ -1,0 +1,13 @@
+# Sakura Pop — konfigurasi deploy Netlify
+# Nitro otomatis mendeteksi environment Netlify, tapi preset dipaksa eksplisit
+# di sini agar server functions & API routes ikut ter-build.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Node 24 = npm 11. Jangan turunkan: npm 10 gagal install dependensi proyek ini.
+  NODE_VERSION = "24"
+  # Paksa Nitro memakai preset Netlify (server function di .netlify/functions-internal).
+  NITRO_PRESET = "netlify"
