@@ -28,16 +28,21 @@ import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   loader: () => getSiteContent(),
-  head: () => ({
-    meta: [
-      { title: "Sakura Pop — Top-up Game & App Premium" },
-      { name: "description", content: "Beli diamond game dan langganan aplikasi premium dengan harga jujur, proses cepat, dan transaksi aman." },
-      { property: "og:title", content: "Sakura Pop — Top-up Game & App Premium" },
-      { property: "og:description", content: "Beli diamond game dan langganan aplikasi premium dengan harga jujur, proses cepat, dan transaksi aman." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    // Judul tab browser mengikuti nama toko (bisa diubah lewat mode ?edit).
+    const brand = loaderData?.brand?.trim() || "Sakura Pop";
+    const title = `${brand} — Top-up Game & App Premium`;
+    return {
+      meta: [
+        { title },
+        { name: "description", content: "Beli diamond game dan langganan aplikasi premium dengan harga jujur, proses cepat, dan transaksi aman." },
+        { property: "og:title", content: title },
+        { property: "og:description", content: "Beli diamond game dan langganan aplikasi premium dengan harga jujur, proses cepat, dan transaksi aman." },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+      ],
+    };
+  },
   component: Index,
 });
 

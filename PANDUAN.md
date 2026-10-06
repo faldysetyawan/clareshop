@@ -104,14 +104,12 @@ File `netlify.toml` di proyek ini sudah mengatur build & publish otomatis
    git init
    git add .
    git commit -m "Sakura Pop"
-   ```
-   Buat repo baru di github.com/new (kosong), lalu:
-   ```bash
-   git remote add origin https://github.com/USERNAME/sakura-pop.git
+   git remote add origin https://github.com/faldysetyawan/clareshop.git
    git branch -M main
    git push -u origin main
    ```
    > File `.env` otomatis tidak ikut ke-push (sudah ada di `.gitignore`).
+   > Saat diminta password, tempel **Personal Access Token** GitHub (bukan password akun).
 2. Di netlify.com → **Add new site → Import an existing project** → pilih repo.
    Build settings terisi otomatis dari `netlify.toml`.
 3. **Site settings → Environment variables**, tambahkan:
